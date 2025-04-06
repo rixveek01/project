@@ -1,3 +1,2 @@
 # project
-project about driver safety.. drowsiness detection
-drivers often feel sleepy when driving long so this system alerts the drivers when they yamw or keep their eyes closed for an extended period of time.
+This project is designed to handle and process .dat files, providing a straightforward solution for data analysis and manipulation. It includes tools for reading, analyzing, and generating insights from the data, making it useful for anyone working with data files in this format. The goal is to simplify data processing and provide an easy way to visualize key information.
