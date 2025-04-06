@@ -1,0 +1,9 @@
+import dlib
+
+print("dlib version:", dlib.__version__)
+
+# Test if dlib can detect a face (try creating a detector)
+detector = dlib.get_frontal_face_detector()
+
+# Print out the result to ensure dlib is working
+print("dlib face detector created successfully.")
