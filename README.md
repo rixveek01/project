@@ -1,36 +1,29 @@
-# project
-#  Drowsiness & Yawn Detection System
+Drowsiness Detection System
+This is a real-time drowsiness detection system that uses a webcam to monitor signs of sleepiness. It detects eye closure and yawning and provides voice alerts to help users stay alert, especially while studying or driving.
 
-A real-time Python-based system that detects drowsiness and yawning using computer vision techniques. Designed to help **students stay alert while studying** and **drivers avoid accidents caused by sleepiness**.
+Features
+1.Real-time detection using webcam feed
 
----
+2.Eye closure detection using Eye Aspect Ratio (EAR)
 
-##  Features
+3.Yawn detection using lip distance
 
-- Detects **eye closure** using Eye Aspect Ratio (EAR)
-- Identifies **yawning** using lip distance measurement
-- Provides **audio alerts** using `espeak` to wake users up
-- Works with any standard **webcam**
-- Lightweight and real-time performance
+4.Voice alerts using espeak
 
----
+5.Uses MediaPipe FaceMesh (no external model files required)
 
-##  How It Works
+6.Suppresses unnecessary warnings for a cleaner output
 
-1. Captures live video feed using OpenCV
-2. Detects face and facial landmarks with Dlib
-3. Calculates EAR to detect eye closure (drowsiness)
-4. Measures lip distance to detect yawns
-5. Plays alert audio when thresholds are crossed
+ ## Model Used
+The project uses the FaceMesh model from the MediaPipe library. It detects 468 facial landmarks, including eyes and lips, directly from the video stream. It does not require any external files like .xml or .dat.
 
----
+## Requirements
+Python 3
 
-##  Tech Stack
+OpenCV
 
-- Python 3
-- OpenCV
-- Dlib
-- imutils
-- NumPy
-- Haar Cascades (for face detection)
-- `espeak` (for voice alerts)
+NumPy
+
+MediaPipe
+
+espeak (for voice alerts)
