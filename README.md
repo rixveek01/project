@@ -1,8 +1,8 @@
-Drowsiness Detection System
+## Drowsiness Detection System
 
 This is a real-time drowsiness detection system that uses a webcam to monitor signs of sleepiness. It detects eye closure and yawning and provides voice alerts to help users stay alert, especially while studying or driving.
 
-Features 
+## Features 
 
 1. Real-time detection using webcam feed
 
@@ -31,7 +31,7 @@ MediaPipe
 espeak (for voice alerts)
 
 
-How It Works
+## How It Works
 Captures live video from the webcam.
 
 Uses MediaPipe FaceMesh to identify key facial landmarks.
@@ -44,8 +44,8 @@ If drowsiness or yawning is detected for more than one second, it gives a voice 
 
 
 
-Output
+## Output
 The system displays the EAR and Yawn values on the video feed. Alerts such as "You are sleepy" or "You are yawning" will appear on screen and be spoken aloud when thresholds are crossed.
 
-License
+## License
 This project is open-source and free to use or modify.
