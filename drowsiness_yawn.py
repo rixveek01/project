@@ -1,167 +1,117 @@
-#python drowniness_yawn.py --webcam webcam_index
-
-from scipy.spatial import distance as dist
-from imutils.video import VideoStream
-from imutils import face_utils
-from threading import Thread
-import numpy as np
-import argparse
-import imutils
-import time
-import dlib
-import cv2
 import os
+import sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow logs
+sys.stderr = open(os.devnull, 'w')        # Hide MediaPipe warnings
 
-def alarm(msg):
-    global alarm_status
-    global alarm_status2
-    global saying
+import cv2
+import numpy as np
+import mediapipe as mp
+import subprocess
+import time
 
-    while alarm_status:
-        print('call')
-        s = 'espeak "'+msg+'"'
-        os.system(s)
+print("[INFO] Initializing Drowsiness Detection System...")
+for i in range(3):
+    print("." * (i + 1))
+    time.sleep(0.3)
+print("[INFO] Starting video stream.\n")
 
-    if alarm_status2:
-        print('call')
-        saying = True
-        s = 'espeak "' + msg + '"'
-        os.system(s)
-        saying = False
+# Thresholds
+EAR_THRESHOLD = 0.24
+YAWN_THRESHOLD = 27
+EAR_CONSEC_FRAMES = 30
 
-def eye_aspect_ratio(eye):
-    A = dist.euclidean(eye[1], eye[5])
-    B = dist.euclidean(eye[2], eye[4])
+# Alert control
+sleep_start_time = None
+yawn_start_time = None
+sleep_alerted = False
+yawn_alerted = False
 
-    C = dist.euclidean(eye[0], eye[3])
+# MediaPipe
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, min_detection_confidence=0.5)
 
-    ear = (A + B) / (2.0 * C)
+LEFT_EYE = [33, 160, 158, 133, 153, 144]
+RIGHT_EYE = [362, 385, 387, 263, 373, 380]
+TOP_LIP = [13]
+BOTTOM_LIP = [14]
 
-    return ear
+def calculate_EAR(eye):
+    A = np.linalg.norm(eye[1] - eye[5])
+    B = np.linalg.norm(eye[2] - eye[4])
+    C = np.linalg.norm(eye[0] - eye[3])
+    return (A + B) / (2.0 * C)
 
-def final_ear(shape):
-    (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
-    (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
+def lip_distance(top, bottom):
+    return abs(top[0][1] - bottom[0][1])
 
-    leftEye = shape[lStart:lEnd]
-    rightEye = shape[rStart:rEnd]
+cap = cv2.VideoCapture(0)
 
-    leftEAR = eye_aspect_ratio(leftEye)
-    rightEAR = eye_aspect_ratio(rightEye)
-
-    ear = (leftEAR + rightEAR) / 2.0
-    return (ear, leftEye, rightEye)
-
-def lip_distance(shape):
-    top_lip = shape[50:53]
-    top_lip = np.concatenate((top_lip, shape[61:64]))
-
-    low_lip = shape[56:59]
-    low_lip = np.concatenate((low_lip, shape[65:68]))
-
-    top_mean = np.mean(top_lip, axis=0)
-    low_mean = np.mean(low_lip, axis=0)
-
-    distance = abs(top_mean[1] - low_mean[1])
-    return distance
-
-
-ap = argparse.ArgumentParser()
-ap.add_argument("-w", "--webcam", type=int, default=0,
-                help="index of webcam on system")
-args = vars(ap.parse_args())
-
-EYE_AR_THRESH = 0.3
-EYE_AR_CONSEC_FRAMES = 30
-YAWN_THRESH = 20
-alarm_status = False
-alarm_status2 = False
-saying = False
-COUNTER = 0
-
-print("-> Loading the predictor and detector...")
-#detector = dlib.get_frontal_face_detector()
-detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")    #Faster but less accurate
-predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
-
-
-print("-> Starting Video Stream")
-vs = VideoStream(src=args["webcam"]).start()
-#vs= VideoStream(usePiCamera=True).start()       //For Raspberry Pi
-time.sleep(1.0)
-
-while True:
-
-    frame = vs.read()
-    frame = imutils.resize(frame, width=450)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    #rects = detector(gray, 0)
-    rects = detector.detectMultiScale(gray, scaleFactor=1.1, 
-		minNeighbors=5, minSize=(30, 30),
-		flags=cv2.CASCADE_SCALE_IMAGE)
-
-    #for rect in rects:
-    for (x, y, w, h) in rects:
-        rect = dlib.rectangle(int(x), int(y), int(x + w),int(y + h))
-        
-        shape = predictor(gray, rect)
-        shape = face_utils.shape_to_np(shape)
-
-        eye = final_ear(shape)
-        ear = eye[0]
-        leftEye = eye [1]
-        rightEye = eye[2]
-
-        distance = lip_distance(shape)
-
-        leftEyeHull = cv2.convexHull(leftEye)
-        rightEyeHull = cv2.convexHull(rightEye)
-        cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-
-        lip = shape[48:60]
-        cv2.drawContours(frame, [lip], -1, (0, 255, 0), 1)
-
-        if ear < EYE_AR_THRESH:
-            COUNTER += 1
-
-            if COUNTER >= EYE_AR_CONSEC_FRAMES:
-                if alarm_status == False:
-                    alarm_status = True
-                    t = Thread(target=alarm, args=('wake up sir',))
-                    t.deamon = True
-                    t.start()
-
-                cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-        else:
-            COUNTER = 0
-            alarm_status = False
-
-        if (distance > YAWN_THRESH):
-                cv2.putText(frame, "Yawn Alert", (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                if alarm_status2 == False and saying == False:
-                    alarm_status2 = True
-                    t = Thread(target=alarm, args=('take some fresh air sir',))
-                    t.deamon = True
-                    t.start()
-        else:
-            alarm_status2 = False
-
-        cv2.putText(frame, "EAR: {:.2f}".format(ear), (300, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        cv2.putText(frame, "YAWN: {:.2f}".format(distance), (300, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-
-    cv2.imshow("Frame", frame)
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord("q"):
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
         break
 
+    h, w, _ = frame.shape
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    result = face_mesh.process(rgb)
+
+    if result.multi_face_landmarks:
+        for face_landmarks in result.multi_face_landmarks:
+            landmarks = face_landmarks.landmark
+
+            left_eye = np.array([(landmarks[i].x * w, landmarks[i].y * h) for i in LEFT_EYE], dtype=np.int32)
+            right_eye = np.array([(landmarks[i].x * w, landmarks[i].y * h) for i in RIGHT_EYE], dtype=np.int32)
+            left_ear = calculate_EAR(left_eye)
+            right_ear = calculate_EAR(right_eye)
+            avg_ear = (left_ear + right_ear) / 2.0
+
+            top_lip = [(landmarks[i].x * w, landmarks[i].y * h) for i in TOP_LIP]
+            bottom_lip = [(landmarks[i].x * w, landmarks[i].y * h) for i in BOTTOM_LIP]
+            mouth_open = lip_distance(top_lip, bottom_lip)
+
+            # Draw eyes
+            cv2.polylines(frame, [left_eye], isClosed=True, color=(0, 255, 0), thickness=1)
+            cv2.polylines(frame, [right_eye], isClosed=True, color=(0, 255, 0), thickness=1)
+
+            # Draw mouth
+            for point in top_lip + bottom_lip:
+                cv2.circle(frame, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
+
+            # EAR and Yawn display
+            cv2.putText(frame, f"EAR: {avg_ear:.2f}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+            cv2.putText(frame, f"YAWN: {mouth_open:.2f}", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+
+            now = time.time()
+
+            # Sleep detection
+            if avg_ear < EAR_THRESHOLD:
+                if sleep_start_time is None:
+                    sleep_start_time = now
+                elif now - sleep_start_time > 1 and not sleep_alerted:
+                    subprocess.call(["espeak", "You are sleepy"])
+                    sleep_alerted = True
+                    cv2.putText(frame, "SLEEPY ALERT!", (20, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+            else:
+                sleep_start_time = None
+                sleep_alerted = False
+
+            # Yawn detection
+            if mouth_open > YAWN_THRESHOLD:
+                if yawn_start_time is None:
+                    yawn_start_time = now
+                elif now - yawn_start_time > 1 and not yawn_alerted:
+                    subprocess.call(["espeak", "You are yawning"])
+                    yawn_alerted = True
+                    cv2.putText(frame, "YAWNING!", (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+            else:
+                yawn_start_time = None
+                yawn_alerted = False
+
+    cv2.imshow("Drowsiness Detector", frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:
+        break
+
+cap.release()
 cv2.destroyAllWindows()
-vs.stop()
+
